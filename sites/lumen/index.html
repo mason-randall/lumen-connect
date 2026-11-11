@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lumen · Photo editor</title>
+    <link rel="stylesheet" href="/site.css" />
+    <!-- Softmax Connect: the nav, and your agent, on this app. -->
+    <script src="{{CONNECT}}/connect.js" data-site="lumen" data-position="bottom-left" data-nav="agent" data-wave="particles" async></script>
+  </head>
+  <body>
+    <header class="bar">
+      <span class="brand"><span class="brand-mark"></span>Lumen</span>
+      <span class="file" id="file-name">portrait.jpg</span>
+      <span class="spacer"></span>
+      <button type="button" class="button" id="undo" title="Undo (⌘Z)" disabled>Undo</button>
+      <button type="button" class="button" id="redo" title="Redo (⇧⌘Z)" disabled>Redo</button>
+      <label class="button" for="open">Open photo</label>
+      <input type="file" id="open" accept="image/*,.arw,.cr2,.cr3,.nef,.nrw,.raf,.orf,.rw2,.dng,.pef,.srw,.3fr,.iiq" hidden />
+      <button type="button" class="button" id="compare" title="Hold to see the original">Compare</button>
+      <button type="button" class="button" id="reset">Reset</button>
+      <a class="button button-primary" id="export" href="#" download="lumen.jpg">Export</a>
+    </header>
+    <main class="editor">
+      <section class="stage" aria-label="Photo">
+        <canvas id="photo" aria-label="The photo"></canvas>
+        <p class="stage-note" id="stage-note" hidden>Original</p>
+      </section>
+      <aside class="controls" aria-label="Adjustments">
+        <canvas id="histogram" class="histogram" width="560" height="160" aria-label="Histogram"></canvas>
+        <div class="presets">
+          <label for="look">Look</label>
+          <select id="look">
+            <option value="none">None</option>
+            <option value="golden">Golden hour</option>
+            <option value="film">Film</option>
+            <option value="cool">Cool</option>
+            <option value="noir">Noir</option>
+          </select>
+          <button type="button" class="button" id="auto">Auto</button>
+        </div>
+        <form id="adjustments">
+          <details class="panel" open>
+          <summary>Light</summary>
+          <fieldset class="group"><legend class="sr-only">Light</legend>
+          <div class="slider">
+            <label for="exposure">Exposure</label>
+            <output for="exposure" id="exposure-out">0</output>
+            <input type="range" id="exposure" min="-3" max="3" step="0.05" value="0" data-scale="1" data-format="ev" />
+          </div>
+          <div class="slider">
+            <label for="contrast">Contrast</label>
+            <output for="contrast" id="contrast-out">0</output>
+            <input type="range" id="contrast" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="highlights">Highlights</label>
+            <output for="highlights" id="highlights-out">0</output>
+            <input type="range" id="highlights" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="shadows">Shadows</label>
+            <output for="shadows" id="shadows-out">0</output>
+            <input type="range" id="shadows" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="whites">Whites</label>
+            <output for="whites" id="whites-out">0</output>
+            <input type="range" id="whites" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="blacks">Blacks</label>
+            <output for="blacks" id="blacks-out">0</output>
+            <input type="range" id="blacks" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="panel" open>
+          <summary>Presence</summary>
+          <fieldset class="group"><legend class="sr-only">Presence</legend>
+          <div class="slider">
+            <label for="texture">Texture</label>
+            <output for="texture" id="texture-out">0</output>
+            <input type="range" id="texture" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="clarity">Clarity</label>
+            <output for="clarity" id="clarity-out">0</output>
+            <input type="range" id="clarity" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="dehaze">Dehaze</label>
+            <output for="dehaze" id="dehaze-out">0</output>
+            <input type="range" id="dehaze" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="panel" open>
+          <summary>Color</summary>
+          <fieldset class="group"><legend class="sr-only">Color</legend>
+          <div class="slider">
+            <label for="temperature">Temperature</label>
+            <output for="temperature" id="temperature-out">0</output>
+            <input type="range" id="temperature" class="track-temperature" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="tint">Tint</label>
+            <output for="tint" id="tint-out">0</output>
+            <input type="range" id="tint" class="track-tint" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="vibrance">Vibrance</label>
+            <output for="vibrance" id="vibrance-out">0</output>
+            <input type="range" id="vibrance" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="saturation">Saturation</label>
+            <output for="saturation" id="saturation-out">0</output>
+            <input type="range" id="saturation" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="panel">
+          <summary>Color mixer</summary>
+          <fieldset class="group"><legend>Hue</legend>
+          <div class="slider">
+            <label for="mix-h-red">Red hue</label>
+            <output for="mix-h-red" id="mix-h-red-out">0</output>
+            <input type="range" id="mix-h-red" class="swatch swatch-red" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-h-orange">Orange hue</label>
+            <output for="mix-h-orange" id="mix-h-orange-out">0</output>
+            <input type="range" id="mix-h-orange" class="swatch swatch-orange" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-h-yellow">Yellow hue</label>
+            <output for="mix-h-yellow" id="mix-h-yellow-out">0</output>
+            <input type="range" id="mix-h-yellow" class="swatch swatch-yellow" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-h-green">Green hue</label>
+            <output for="mix-h-green" id="mix-h-green-out">0</output>
+            <input type="range" id="mix-h-green" class="swatch swatch-green" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-h-aqua">Aqua hue</label>
+            <output for="mix-h-aqua" id="mix-h-aqua-out">0</output>
+            <input type="range" id="mix-h-aqua" class="swatch swatch-aqua" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-h-blue">Blue hue</label>
+            <output for="mix-h-blue" id="mix-h-blue-out">0</output>
+            <input type="range" id="mix-h-blue" class="swatch swatch-blue" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-h-purple">Purple hue</label>
+            <output for="mix-h-purple" id="mix-h-purple-out">0</output>
+            <input type="range" id="mix-h-purple" class="swatch swatch-purple" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-h-magenta">Magenta hue</label>
+            <output for="mix-h-magenta" id="mix-h-magenta-out">0</output>
+            <input type="range" id="mix-h-magenta" class="swatch swatch-magenta" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          <fieldset class="group"><legend>Saturation</legend>
+          <div class="slider">
+            <label for="mix-s-red">Red saturation</label>
+            <output for="mix-s-red" id="mix-s-red-out">0</output>
+            <input type="range" id="mix-s-red" class="swatch swatch-red" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-s-orange">Orange saturation</label>
+            <output for="mix-s-orange" id="mix-s-orange-out">0</output>
+            <input type="range" id="mix-s-orange" class="swatch swatch-orange" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-s-yellow">Yellow saturation</label>
+            <output for="mix-s-yellow" id="mix-s-yellow-out">0</output>
+            <input type="range" id="mix-s-yellow" class="swatch swatch-yellow" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-s-green">Green saturation</label>
+            <output for="mix-s-green" id="mix-s-green-out">0</output>
+            <input type="range" id="mix-s-green" class="swatch swatch-green" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-s-aqua">Aqua saturation</label>
+            <output for="mix-s-aqua" id="mix-s-aqua-out">0</output>
+            <input type="range" id="mix-s-aqua" class="swatch swatch-aqua" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-s-blue">Blue saturation</label>
+            <output for="mix-s-blue" id="mix-s-blue-out">0</output>
+            <input type="range" id="mix-s-blue" class="swatch swatch-blue" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-s-purple">Purple saturation</label>
+            <output for="mix-s-purple" id="mix-s-purple-out">0</output>
+            <input type="range" id="mix-s-purple" class="swatch swatch-purple" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-s-magenta">Magenta saturation</label>
+            <output for="mix-s-magenta" id="mix-s-magenta-out">0</output>
+            <input type="range" id="mix-s-magenta" class="swatch swatch-magenta" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          <fieldset class="group"><legend>Luminance</legend>
+          <div class="slider">
+            <label for="mix-l-red">Red luminance</label>
+            <output for="mix-l-red" id="mix-l-red-out">0</output>
+            <input type="range" id="mix-l-red" class="swatch swatch-red" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-l-orange">Orange luminance</label>
+            <output for="mix-l-orange" id="mix-l-orange-out">0</output>
+            <input type="range" id="mix-l-orange" class="swatch swatch-orange" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-l-yellow">Yellow luminance</label>
+            <output for="mix-l-yellow" id="mix-l-yellow-out">0</output>
+            <input type="range" id="mix-l-yellow" class="swatch swatch-yellow" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-l-green">Green luminance</label>
+            <output for="mix-l-green" id="mix-l-green-out">0</output>
+            <input type="range" id="mix-l-green" class="swatch swatch-green" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-l-aqua">Aqua luminance</label>
+            <output for="mix-l-aqua" id="mix-l-aqua-out">0</output>
+            <input type="range" id="mix-l-aqua" class="swatch swatch-aqua" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-l-blue">Blue luminance</label>
+            <output for="mix-l-blue" id="mix-l-blue-out">0</output>
+            <input type="range" id="mix-l-blue" class="swatch swatch-blue" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-l-purple">Purple luminance</label>
+            <output for="mix-l-purple" id="mix-l-purple-out">0</output>
+            <input type="range" id="mix-l-purple" class="swatch swatch-purple" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="mix-l-magenta">Magenta luminance</label>
+            <output for="mix-l-magenta" id="mix-l-magenta-out">0</output>
+            <input type="range" id="mix-l-magenta" class="swatch swatch-magenta" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="panel">
+          <summary>Color grading</summary>
+          <fieldset class="group"><legend class="sr-only">Color grading</legend>
+          <div class="slider">
+            <label for="grade-shadows-hue">Shadows hue</label>
+            <output for="grade-shadows-hue" id="grade-shadows-hue-out">220</output>
+            <input type="range" id="grade-shadows-hue" class="track-hue" min="0" max="360" step="1" value="220" data-scale="1" />
+          </div>
+          <div class="slider">
+            <label for="grade-shadows-sat">Shadows saturation</label>
+            <output for="grade-shadows-sat" id="grade-shadows-sat-out">0</output>
+            <input type="range" id="grade-shadows-sat" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="grade-midtones-hue">Midtones hue</label>
+            <output for="grade-midtones-hue" id="grade-midtones-hue-out">40</output>
+            <input type="range" id="grade-midtones-hue" class="track-hue" min="0" max="360" step="1" value="40" data-scale="1" />
+          </div>
+          <div class="slider">
+            <label for="grade-midtones-sat">Midtones saturation</label>
+            <output for="grade-midtones-sat" id="grade-midtones-sat-out">0</output>
+            <input type="range" id="grade-midtones-sat" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="grade-highlights-hue">Highlights hue</label>
+            <output for="grade-highlights-hue" id="grade-highlights-hue-out">45</output>
+            <input type="range" id="grade-highlights-hue" class="track-hue" min="0" max="360" step="1" value="45" data-scale="1" />
+          </div>
+          <div class="slider">
+            <label for="grade-highlights-sat">Highlights saturation</label>
+            <output for="grade-highlights-sat" id="grade-highlights-sat-out">0</output>
+            <input type="range" id="grade-highlights-sat" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="grade-balance">Balance</label>
+            <output for="grade-balance" id="grade-balance-out">0</output>
+            <input type="range" id="grade-balance" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="panel">
+          <summary>Detail</summary>
+          <fieldset class="group"><legend class="sr-only">Detail</legend>
+          <div class="slider">
+            <label for="sharpen">Sharpening</label>
+            <output for="sharpen" id="sharpen-out">0</output>
+            <input type="range" id="sharpen" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="denoise">Noise reduction</label>
+            <output for="denoise" id="denoise-out">0</output>
+            <input type="range" id="denoise" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="denoise-color">Color noise reduction</label>
+            <output for="denoise-color" id="denoise-color-out">0</output>
+            <input type="range" id="denoise-color" min="0" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="panel" open>
+          <summary>Effects</summary>
+          <fieldset class="group"><legend class="sr-only">Effects</legend>
+          <div class="slider">
+            <label for="vignette">Vignette</label>
+            <output for="vignette" id="vignette-out">0</output>
+            <input type="range" id="vignette" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="vignette-feather">Vignette feather</label>
+            <output for="vignette-feather" id="vignette-feather-out">50</output>
+            <input type="range" id="vignette-feather" min="0" max="100" step="1" value="50" />
+          </div>
+          <div class="slider">
+            <label for="grain">Grain</label>
+            <output for="grain" id="grain-out">0</output>
+            <input type="range" id="grain" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="grain-size">Grain size</label>
+            <output for="grain-size" id="grain-size-out">1</output>
+            <input type="range" id="grain-size" min="1" max="4" step="1" value="1" data-scale="1" />
+          </div>
+          <div class="slider">
+            <label for="glow">Glow</label>
+            <output for="glow" id="glow-out">0</output>
+            <input type="range" id="glow" min="0" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="panel" open>
+          <summary>Retouch</summary>
+          <fieldset class="group"><legend class="sr-only">Retouch</legend>
+          <div class="slider">
+            <label for="smooth">Smooth skin</label>
+            <output for="smooth" id="smooth-out">0</output>
+            <input type="range" id="smooth" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="brighten">Brighten face</label>
+            <output for="brighten" id="brighten-out">0</output>
+            <input type="range" id="brighten" min="0" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="eyes">Brighten eyes</label>
+            <output for="eyes" id="eyes-out">0</output>
+            <input type="range" id="eyes" min="0" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="panel masks" open>
+          <summary>Masks</summary>
+          <p class="mask-status" id="mask-status" role="status">Finding the subject…</p>
+          <div class="row">
+            <label for="show-mask">Show mask</label>
+            <select id="show-mask">
+              <option value="none">None</option><option value="subject">Subject</option><option value="background">Background</option><option value="sky">Sky</option><option value="radial">Radial</option><option value="linear">Linear</option>
+            </select>
+          </div>
+          <details class="mask" data-mask="subject">
+          <summary>Subject</summary>
+          <fieldset class="group"><legend class="sr-only">Subject mask</legend>
+          <div class="slider">
+            <label for="m-subject-exposure">Exposure</label>
+            <output for="m-subject-exposure" id="m-subject-exposure-out">0</output>
+            <input type="range" id="m-subject-exposure" min="-3" max="3" step="0.05" value="0" data-scale="1" data-format="ev" />
+          </div>
+          <div class="slider">
+            <label for="m-subject-contrast">Contrast</label>
+            <output for="m-subject-contrast" id="m-subject-contrast-out">0</output>
+            <input type="range" id="m-subject-contrast" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-subject-highlights">Highlights</label>
+            <output for="m-subject-highlights" id="m-subject-highlights-out">0</output>
+            <input type="range" id="m-subject-highlights" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-subject-shadows">Shadows</label>
+            <output for="m-subject-shadows" id="m-subject-shadows-out">0</output>
+            <input type="range" id="m-subject-shadows" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-subject-temperature">Temperature</label>
+            <output for="m-subject-temperature" id="m-subject-temperature-out">0</output>
+            <input type="range" id="m-subject-temperature" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-subject-saturation">Saturation</label>
+            <output for="m-subject-saturation" id="m-subject-saturation-out">0</output>
+            <input type="range" id="m-subject-saturation" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-subject-clarity">Clarity</label>
+            <output for="m-subject-clarity" id="m-subject-clarity-out">0</output>
+            <input type="range" id="m-subject-clarity" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="mask" data-mask="background">
+          <summary>Background</summary>
+          <fieldset class="group"><legend class="sr-only">Background mask</legend>
+          <div class="slider">
+            <label for="m-background-exposure">Exposure</label>
+            <output for="m-background-exposure" id="m-background-exposure-out">0</output>
+            <input type="range" id="m-background-exposure" min="-3" max="3" step="0.05" value="0" data-scale="1" data-format="ev" />
+          </div>
+          <div class="slider">
+            <label for="m-background-contrast">Contrast</label>
+            <output for="m-background-contrast" id="m-background-contrast-out">0</output>
+            <input type="range" id="m-background-contrast" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-background-highlights">Highlights</label>
+            <output for="m-background-highlights" id="m-background-highlights-out">0</output>
+            <input type="range" id="m-background-highlights" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-background-shadows">Shadows</label>
+            <output for="m-background-shadows" id="m-background-shadows-out">0</output>
+            <input type="range" id="m-background-shadows" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-background-temperature">Temperature</label>
+            <output for="m-background-temperature" id="m-background-temperature-out">0</output>
+            <input type="range" id="m-background-temperature" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-background-saturation">Saturation</label>
+            <output for="m-background-saturation" id="m-background-saturation-out">0</output>
+            <input type="range" id="m-background-saturation" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-background-clarity">Clarity</label>
+            <output for="m-background-clarity" id="m-background-clarity-out">0</output>
+            <input type="range" id="m-background-clarity" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="mask" data-mask="sky">
+          <summary>Sky</summary>
+          <fieldset class="group"><legend class="sr-only">Sky mask</legend>
+          <div class="slider">
+            <label for="m-sky-exposure">Exposure</label>
+            <output for="m-sky-exposure" id="m-sky-exposure-out">0</output>
+            <input type="range" id="m-sky-exposure" min="-3" max="3" step="0.05" value="0" data-scale="1" data-format="ev" />
+          </div>
+          <div class="slider">
+            <label for="m-sky-contrast">Contrast</label>
+            <output for="m-sky-contrast" id="m-sky-contrast-out">0</output>
+            <input type="range" id="m-sky-contrast" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-sky-highlights">Highlights</label>
+            <output for="m-sky-highlights" id="m-sky-highlights-out">0</output>
+            <input type="range" id="m-sky-highlights" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-sky-shadows">Shadows</label>
+            <output for="m-sky-shadows" id="m-sky-shadows-out">0</output>
+            <input type="range" id="m-sky-shadows" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-sky-temperature">Temperature</label>
+            <output for="m-sky-temperature" id="m-sky-temperature-out">0</output>
+            <input type="range" id="m-sky-temperature" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-sky-saturation">Saturation</label>
+            <output for="m-sky-saturation" id="m-sky-saturation-out">0</output>
+            <input type="range" id="m-sky-saturation" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-sky-clarity">Clarity</label>
+            <output for="m-sky-clarity" id="m-sky-clarity-out">0</output>
+            <input type="range" id="m-sky-clarity" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="mask" data-mask="radial">
+          <summary>Radial</summary>
+          <fieldset class="group"><legend class="sr-only">Radial mask</legend>
+          <div class="slider">
+            <label for="m-radial-x">Center across</label>
+            <output for="m-radial-x" id="m-radial-x-out">50</output>
+            <input type="range" id="m-radial-x" min="0" max="100" step="1" value="50" data-format="pct" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-y">Center down</label>
+            <output for="m-radial-y" id="m-radial-y-out">40</output>
+            <input type="range" id="m-radial-y" min="0" max="100" step="1" value="40" data-format="pct" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-size">Size</label>
+            <output for="m-radial-size" id="m-radial-size-out">35</output>
+            <input type="range" id="m-radial-size" min="5" max="100" step="1" value="35" data-format="pct" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-feather">Feather</label>
+            <output for="m-radial-feather" id="m-radial-feather-out">50</output>
+            <input type="range" id="m-radial-feather" min="0" max="100" step="1" value="50" />
+          </div>
+          <label class="check"><input type="checkbox" id="m-radial-invert" /> Invert</label>
+          <div class="slider">
+            <label for="m-radial-exposure">Exposure</label>
+            <output for="m-radial-exposure" id="m-radial-exposure-out">0</output>
+            <input type="range" id="m-radial-exposure" min="-3" max="3" step="0.05" value="0" data-scale="1" data-format="ev" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-contrast">Contrast</label>
+            <output for="m-radial-contrast" id="m-radial-contrast-out">0</output>
+            <input type="range" id="m-radial-contrast" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-highlights">Highlights</label>
+            <output for="m-radial-highlights" id="m-radial-highlights-out">0</output>
+            <input type="range" id="m-radial-highlights" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-shadows">Shadows</label>
+            <output for="m-radial-shadows" id="m-radial-shadows-out">0</output>
+            <input type="range" id="m-radial-shadows" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-temperature">Temperature</label>
+            <output for="m-radial-temperature" id="m-radial-temperature-out">0</output>
+            <input type="range" id="m-radial-temperature" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-saturation">Saturation</label>
+            <output for="m-radial-saturation" id="m-radial-saturation-out">0</output>
+            <input type="range" id="m-radial-saturation" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-radial-clarity">Clarity</label>
+            <output for="m-radial-clarity" id="m-radial-clarity-out">0</output>
+            <input type="range" id="m-radial-clarity" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          <details class="mask" data-mask="linear">
+          <summary>Linear gradient</summary>
+          <fieldset class="group"><legend class="sr-only">Linear gradient mask</legend>
+          <div class="row">
+            <label for="m-linear-from">From</label>
+            <select id="m-linear-from"><option value="top">Top</option><option value="bottom">Bottom</option><option value="left">Left</option><option value="right">Right</option></select>
+          </div>
+          <div class="slider">
+            <label for="m-linear-position">Reach</label>
+            <output for="m-linear-position" id="m-linear-position-out">45</output>
+            <input type="range" id="m-linear-position" min="0" max="100" step="1" value="45" data-format="pct" />
+          </div>
+          <div class="slider">
+            <label for="m-linear-feather">Feather</label>
+            <output for="m-linear-feather" id="m-linear-feather-out">40</output>
+            <input type="range" id="m-linear-feather" min="0" max="100" step="1" value="40" />
+          </div>
+          <div class="slider">
+            <label for="m-linear-exposure">Exposure</label>
+            <output for="m-linear-exposure" id="m-linear-exposure-out">0</output>
+            <input type="range" id="m-linear-exposure" min="-3" max="3" step="0.05" value="0" data-scale="1" data-format="ev" />
+          </div>
+          <div class="slider">
+            <label for="m-linear-contrast">Contrast</label>
+            <output for="m-linear-contrast" id="m-linear-contrast-out">0</output>
+            <input type="range" id="m-linear-contrast" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-linear-highlights">Highlights</label>
+            <output for="m-linear-highlights" id="m-linear-highlights-out">0</output>
+            <input type="range" id="m-linear-highlights" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-linear-shadows">Shadows</label>
+            <output for="m-linear-shadows" id="m-linear-shadows-out">0</output>
+            <input type="range" id="m-linear-shadows" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-linear-temperature">Temperature</label>
+            <output for="m-linear-temperature" id="m-linear-temperature-out">0</output>
+            <input type="range" id="m-linear-temperature" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-linear-saturation">Saturation</label>
+            <output for="m-linear-saturation" id="m-linear-saturation-out">0</output>
+            <input type="range" id="m-linear-saturation" min="-100" max="100" step="1" value="0" />
+          </div>
+          <div class="slider">
+            <label for="m-linear-clarity">Clarity</label>
+            <output for="m-linear-clarity" id="m-linear-clarity-out">0</output>
+            <input type="range" id="m-linear-clarity" min="-100" max="100" step="1" value="0" />
+          </div>
+          </fieldset>
+          </details>
+          </details>
+          <details class="panel">
+          <summary>Geometry</summary>
+          <fieldset class="group"><legend class="sr-only">Geometry</legend>
+          <div class="row">
+            <label for="crop">Crop</label>
+            <select id="crop"><option value="original">Original</option><option value="1:1">Square 1:1</option><option value="4:5">Portrait 4:5</option><option value="3:2">3:2</option><option value="16:9">Wide 16:9</option><option value="9:16">Story 9:16</option></select>
+          </div>
+          <div class="slider">
+            <label for="straighten">Straighten</label>
+            <output for="straighten" id="straighten-out">0</output>
+            <input type="range" id="straighten" min="-15" max="15" step="0.1" value="0" data-scale="1" data-format="deg" />
+          </div>
+          <div class="buttons">
+            <button type="button" class="button" id="rotate-left">Rotate left</button>
+            <button type="button" class="button" id="rotate-right">Rotate right</button>
+          </div>
+          <label class="check"><input type="checkbox" id="flip" /> Flip horizontal</label>
+          </fieldset>
+          </details>
+        </form>
+        <label class="check"><input type="checkbox" id="clipping" /> Show clipping</label>
+      </aside>
+    </main>
+    <script src="/engine.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
