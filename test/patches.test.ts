@@ -36,9 +36,23 @@ describe('the patch language', () => {
 
   it('knows a safe link and a safe style value', () => {
     for (const ok of ['/shop', '#beans', 'shop.html', '?plan=team', 'mailto:hi@example.com', 'https://example.com']) expect(unsafeHref(ok), ok).toBeNull();
-    for (const bad of ['javascript:x', '//evil.example', 'data:text/html,x', 'http://plain.example']) expect(unsafeHref(bad), bad).not.toBeNull();
+    for (const bad of ['javascript:x', '//evil.example', 'data:text/html,x', 'http://plain.example', '/\\evil.example', '\\\\evil.example', 'java\tscript:x']) expect(unsafeHref(bad), bad).not.toBeNull();
     expect(unsafeCss('url("data:image/png;base64,AAA")')).toBeNull();
     expect(unsafeCss('expression(alert(1))')).not.toBeNull();
+  });
+
+  it('keeps CSS from loading anything, however it is spelled', () => {
+    for (const ok of ['16px', '@media (max-width: 600px) { .menu { display: none } }', '@keyframes pulse { to { opacity: .5 } }']) expect(unsafeCss(ok), ok).toBeNull();
+    for (const bad of [
+      'url(https://evil.example/x.png)',
+      'u\\72l(https://evil.example/x.png)',
+      '\\40 import "https://evil.example/a.css"',
+      '@import "https://evil.example/a.css"',
+      '@font-face { font-family: x; src: url(data:image/png;base64,AAA) }',
+      'image-set("https://evil.example/x.png" 1x)',
+      'url(https://evil.example/x.png',
+      'input[value^="a"] { background: url(https://evil.example/a) }',
+    ]) expect(unsafeCss(bad), bad).not.toBeNull();
   });
 });
 

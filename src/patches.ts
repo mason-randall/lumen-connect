@@ -67,11 +67,22 @@ const MAX_PATCHES = 40;
 const MAX_TEXT = 400;
 const MAX_CSS = 6000;
 
-/** A value that can't load or run anything: no url() to elsewhere, no expression(), no javascript:, no @import. */
+/** At-rules a variant's CSS may use: none of them load anything. */
+const AT_RULES = new Set(['media', 'supports', 'keyframes', '-webkit-keyframes', 'container', 'layer']);
+
+/**
+ * A value that can't load or run anything: no url() to elsewhere, no expression(), no javascript:, no @import.
+ * Escapes are refused outright, since `u\72l(` or `\40 import` would hide those from the checks below.
+ */
 export function unsafeCss(value: string): string | null {
-  if (/@import|expression\s*\(|javascript:|behavior\s*:|-moz-binding|<\/?style/i.test(value)) return 'can only set how things look: no @import, expression(), javascript:, or behavior';
-  for (const m of value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)) {
-    if (!/^data:image\/(png|gif|jpe?g|webp|svg\+xml);/i.test(m[2]!)) return 'can only use url() for data:image values (nothing loaded from elsewhere)';
+  if (/\\/.test(value)) return 'can only set how things look: no CSS escapes (\\)';
+  if (/expression\s*\(|javascript:|behavior\s*:|-moz-binding|<\/?style|image-set\s*\(|\bsrc\s*\(/i.test(value)) return 'can only set how things look: no expression(), javascript:, image-set(), src() or behavior';
+  for (const m of value.matchAll(/@([\w-]+)/g)) {
+    if (!AT_RULES.has(m[1]!.toLowerCase())) return `can only set how things look: no @${m[1]} (only @media, @supports, @keyframes, @container and @layer)`;
+  }
+  // Every url(, closed or not (a browser loads an unclosed one at the end of a value).
+  for (const m of value.matchAll(/url\(\s*(['"]?)([^'")]*)/gi)) {
+    if (!/^data:image\/(png|gif|jpe?g|webp|svg\+xml)[;,]/i.test(m[2]!)) return 'can only use url() for data:image values (nothing loaded from elsewhere)';
   }
   return null;
 }
@@ -79,6 +90,8 @@ export function unsafeCss(value: string): string | null {
 /** A destination a link may have: on the site, an anchor, mail, or https. */
 export function unsafeHref(href: string): string | null {
   const h = href.trim();
+  // A backslash or control character makes a browser read "/\evil.example" as another site.
+  if (/[\\\u0000-\u001f\u007f]/.test(h)) return 'should be a plain link, with no backslashes or control characters';
   if (/^(\/(?!\/)|#|\?|\.\.?\/|mailto:|https:\/\/)/i.test(h) || /^[\w-]+(\.html?)?([?#].*)?$/.test(h)) return null;
   return 'should be a path on the site ("/order"), an anchor ("#menu"), mailto:, or an https:// link';
 }
